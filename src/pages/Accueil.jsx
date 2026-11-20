@@ -7,11 +7,12 @@ export default function Accueil({ settings, participants, go }) {
   return (
     <>
       <section className="hero">
+        <div className="hero-int">
         <p className="kicker">Invitation · Fin d'année</p>
         <h1>
-          <span className="rouge">Repas de Noël</span>
+          <span className="blanc">Repas de Noël</span>
           <br />
-          <span className="vert">&amp; Secret Santa</span>
+          <span className="or">&amp; Secret Santa</span>
         </h1>
         <p className="sous-titre">Venez au repas, jouez au Secret Santa… ou faites les deux !</p>
         <div className="boutons">
@@ -21,6 +22,7 @@ export default function Accueil({ settings, participants, go }) {
         {settings.dateLimite && (
           <p className="limite">Inscriptions et votes avant le <strong>{fmtDate(settings.dateLimite)}</strong></p>
         )}
+        </div>
       </section>
 
       <section className="cartes">

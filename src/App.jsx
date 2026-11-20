@@ -62,15 +62,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="entete">
-        <svg className="guirlande" aria-hidden="true" viewBox="0 0 400 40" preserveAspectRatio="none">
-          <path d="M0 6 Q 50 26 100 6 T 200 6 T 300 6 T 400 6" fill="none" stroke="#14532D" strokeWidth="2" />
-          <circle cx="50" cy="26" r="6" fill="#C8102E" />
-          <circle cx="150" cy="26" r="6" fill="#D4A017" />
-          <circle cx="250" cy="26" r="6" fill="#14532D" />
-          <circle cx="350" cy="26" r="6" fill="#C8102E" />
-        </svg>
         <a href="#accueil" className="logo" onClick={() => window.scrollTo(0, 0)}>
-          <span className="rouge">Repas de Noël</span> <span className="vert">&amp; Secret Santa</span>
+          Noël <span className="or">&amp; Secret Santa</span>
         </a>
         <nav className="nav">
           {PAGES.map((p) => (
