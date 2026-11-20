@@ -2,6 +2,12 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # La clé Firebase Web n'est pas un secret (elle est publique par conception) :
+  # on désactive la détection automatique qui bloquait le déploiement.
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+  SECRETS_SCAN_OMIT_PATHS = "node_modules/**"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
