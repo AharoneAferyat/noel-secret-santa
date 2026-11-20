@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Sécurité minimale : site partagé uniquement entre collègues via le QR code.
+    match /settings/{doc} {
+      allow read, write: if true;
+    }
+    match /participants/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.prenom is string
+                    && request.resource.data.nom is string
+                    && request.resource.data.prenom.size() > 0
+                    && request.resource.data.nom.size() > 0;
+      allow update, delete: if true;
+    }
+  }
+}
