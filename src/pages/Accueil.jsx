@@ -1,4 +1,5 @@
 import { fmtDate } from '../utils.js';
+import { INFO_REPAS } from '../config.js';
 
 export default function Accueil({ settings, participants, go }) {
   const nbRepas = participants.filter((p) => p.repas).length;
@@ -29,6 +30,7 @@ export default function Accueil({ settings, participants, go }) {
         <div className="carte fond-vert">
           <h2>Le repas de Noël</h2>
           <p>Un moment convivial, tous ensemble, pour fêter la fin d'année.</p>
+          <p><strong>{INFO_REPAS}</strong></p>
           <div className="encart">
             {settings.dateRetenue ? (
               <>Date retenue : <strong>{fmtDate(settings.dateRetenue)}</strong></>

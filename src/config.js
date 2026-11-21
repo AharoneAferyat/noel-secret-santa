@@ -15,6 +15,9 @@ export const DEFAULT_SETTINGS = {
   tirageLe: '',
 };
 
+// Précision affichée sur le site à propos du repas
+export const INFO_REPAS = 'Le repas aura lieu le midi.';
+
 export const PARTICIPATIONS = [
   { id: 'repas', label: 'Le repas seulement', repas: true, santa: false },
   { id: 'santa', label: 'Le Secret Santa seulement', repas: false, santa: true },

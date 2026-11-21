@@ -1,4 +1,4 @@
-import { PARTICIPATIONS } from './config.js';
+import { INFO_REPAS, PARTICIPATIONS } from './config.js';
 import { fmtDate, fmtDateCourt } from './utils.js';
 
 export function ChoixParticipation({ valeur, onChange, santaBloque }) {
@@ -39,6 +39,8 @@ export function ChoixDispos({ settings, dispos, onChange }) {
   }
   const bascule = (d) => onChange(dispos.includes(d) ? dispos.filter((x) => x !== d) : [...dispos, d]);
   return (
+    <>
+    <p className="aide">{INFO_REPAS} Coche les jours où tu es disponible le midi.</p>
     <div className="dates">
       {dates.map((d) => (
         <label key={d} className={'date-item' + (dispos.includes(d) ? ' coche' : '')}>
@@ -47,6 +49,7 @@ export function ChoixDispos({ settings, dispos, onChange }) {
         </label>
       ))}
     </div>
+    </>
   );
 }
 
