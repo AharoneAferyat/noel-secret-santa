@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { PARTICIPATIONS } from '../config.js';
-import { fmtDate, hashPin, keyOf, participationDe } from '../utils.js';
+import { fmtDate, hashPin, norm, participationDe } from '../utils.js';
 import { ChoixDispos, ChoixParticipation, Pastilles } from '../components.jsx';
 
 const lireSession = () => {
@@ -27,7 +27,17 @@ export default function MonEspace({ settings, participants, charge }) {
   }, [charge, session, valide]);
 
   if (!session || !valide) {
-    return <Connexion onOk={(s) => { localStorage.setItem('noel_session', JSON.stringify(s)); setSession(s); }} />;
+    return (
+      <Connexion
+        participants={participants}
+        charge={charge}
+        onOk={(s) => {
+          localStorage.setItem('noel_session', JSON.stringify(s));
+          localStorage.setItem('noel_dernier', s.key);
+          setSession(s);
+        }}
+      />
+    );
   }
 
   const deconnexion = () => {
@@ -38,48 +48,101 @@ export default function MonEspace({ settings, participants, charge }) {
   return <Espace moi={moi} settings={settings} participants={participants} onDeconnexion={deconnexion} />;
 }
 
-function Connexion({ onOk }) {
-  const [prenom, setPrenom] = useState('');
-  const [nom, setNom] = useState('');
+function Connexion({ participants, charge, onOk }) {
+  const [choisi, setChoisi] = useState(() => localStorage.getItem('noel_dernier') || '');
+  const [recherche, setRecherche] = useState('');
   const [pin, setPin] = useState('');
   const [erreur, setErreur] = useState('');
   const [envoi, setEnvoi] = useState(false);
 
-  const valider = async (e) => {
-    e.preventDefault();
+  const personne = participants.find((p) => p.id === choisi);
+
+  const verifier = async (code) => {
+    if (!personne || code.length !== 4) return;
     setErreur('');
-    const key = keyOf(prenom, nom);
     setEnvoi(true);
     try {
-      const snap = await getDoc(doc(db, 'participants', key));
-      const pinHash = await hashPin(pin, key);
-      if (!snap.exists()) setErreur("Aucune inscription trouvée à ce nom. Vérifie l'orthographe ou inscris-toi.");
-      else if (snap.data().pinHash !== pinHash) setErreur('Code PIN incorrect. En cas d’oubli, demande à l’organisateur de le réinitialiser.');
-      else onOk({ key, pinHash });
-    } catch (err) {
-      setErreur('Erreur : ' + err.message);
+      const pinHash = await hashPin(code, personne.id);
+      if (personne.pinHash !== pinHash) {
+        setErreur('Code incorrect. En cas d\u2019oubli, demande à l\u2019organisateur de le réinitialiser.');
+        setPin('');
+      } else onOk({ key: personne.id, pinHash });
     } finally {
       setEnvoi(false);
     }
   };
 
+  // Étape 2 : profil choisi -> code
+  if (personne) {
+    return (
+      <section className="bloc">
+        <h1 className="titre-page">Mon espace</h1>
+        <div className="profil-choisi">
+          <div className="avatar grand">{initiales(personne)}</div>
+          <div className="profil-nom">{personne.prenom} {personne.nom}</div>
+          <div className="aide">{personne.titre}</div>
+          <form
+            className="formulaire pin-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              verifier(pin);
+            }}
+          >
+            <label>
+              Ton code PIN
+              <input
+                className="pin"
+                value={pin}
+                autoFocus
+                inputMode="numeric"
+                type="password"
+                autoComplete="current-password"
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setPin(v);
+                  if (v.length === 4) verifier(v);
+                }}
+              />
+            </label>
+            {erreur && <div className="alerte erreur">{erreur}</div>}
+            <button className="btn rouge large" disabled={envoi || pin.length !== 4}>{envoi ? 'Connexion…' : 'Me connecter'}</button>
+          </form>
+          <button className="lien" onClick={() => { setChoisi(''); setPin(''); setErreur(''); }}>Ce n'est pas moi</button>
+        </div>
+      </section>
+    );
+  }
+
+  // Étape 1 : choisir son profil
+  const q = norm(recherche);
+  const liste = participants.filter((p) => !q || norm(`${p.prenom} ${p.nom} ${p.titre}`).includes(q));
+
   return (
     <section className="bloc">
       <h1 className="titre-page">Mon espace</h1>
-      <p>Connecte-toi pour modifier ton inscription, voter pour les dates et découvrir ton Secret Santa.</p>
-      <form onSubmit={valider} className="formulaire">
-        <div className="ligne2">
-          <label>Prénom<input value={prenom} onChange={(e) => setPrenom(e.target.value)} /></label>
-          <label>Nom<input value={nom} onChange={(e) => setNom(e.target.value)} /></label>
-        </div>
-        <label>Code PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password" /></label>
-        {erreur && <div className="alerte erreur">{erreur}</div>}
-        <button className="btn rouge large" disabled={envoi}>{envoi ? 'Connexion…' : 'Me connecter'}</button>
-        <p className="aide">Pas encore inscrit·e ? <a href="#inscription">Inscris-toi ici</a>.</p>
-      </form>
+      <p>Clique sur ton nom, puis entre ton code.</p>
+      {participants.length > 8 && (
+        <input className="recherche" placeholder="Rechercher mon nom…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+      )}
+      {!charge && <p>Chargement…</p>}
+      {charge && participants.length === 0 && <p className="aide">Personne n'est encore inscrit.</p>}
+      <div className="profils">
+        {liste.map((p) => (
+          <button key={p.id} className="profil" onClick={() => setChoisi(p.id)}>
+            <span className="avatar">{initiales(p)}</span>
+            <span className="profil-texte">
+              <strong>{p.prenom} {p.nom}</strong>
+              <span>{p.titre}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="aide" style={{ marginTop: 16 }}>Pas encore inscrit·e ? <a href="#inscription">Inscris-toi ici</a>.</p>
     </section>
   );
 }
+
+const initiales = (p) => `${(p.prenom || '?')[0]}${(p.nom || '')[0] || ''}`.toUpperCase();
 
 function Espace({ moi, settings, participants, onDeconnexion }) {
   const [titre, setTitre] = useState(moi.titre);

@@ -108,10 +108,9 @@ function Tableau({ settings, participants }) {
   };
 
   const exporterCSV = () => {
-    const lignes = [['Prénom', 'Nom', 'Poste', 'Repas', 'Secret Santa', 'Disponibilités', 'Offre à']];
+    const lignes = [['Prénom', 'Nom', 'Poste', 'Repas', 'Secret Santa', 'Disponibilités']];
     participants.forEach((p) => {
-      const c = p.cible ? participants.find((x) => x.id === p.cible) : null;
-      lignes.push([p.prenom, p.nom, p.titre, p.repas ? 'oui' : 'non', p.santa ? 'oui' : 'non', (p.dispos || []).join(' / '), c ? `${c.prenom} ${c.nom}` : '']);
+      lignes.push([p.prenom, p.nom, p.titre, p.repas ? 'oui' : 'non', p.santa ? 'oui' : 'non', (p.dispos || []).join(' / ')]);
     });
     const csv = '﻿' + lignes.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
     const a = document.createElement('a');
@@ -194,10 +193,34 @@ function Tableau({ settings, participants }) {
         ) : (
           <>
             <div className="alerte ok">Tirage effectué le {new Date(settings.tirageLe).toLocaleString('fr-FR')}.</div>
+            {(() => {
+              const sansCible = santa.filter((p) => !participants.some((x) => x.id === p.cible));
+              return sansCible.length === 0 ? (
+                <p className="aide">Vérification : les {santa.length} participants ont bien chacun une personne attribuée. Les résultats restent secrets, même pour toi.</p>
+              ) : (
+                <div className="alerte erreur">{sansCible.length} personne(s) sans attribution ({sansCible.map((p) => p.prenom).join(', ')}). Annule et relance le tirage.</div>
+              );
+            })()}
             <div className="actions">
-              <button className="btn contour petit" onClick={() => setVoirResultats(!voirResultats)}>{voirResultats ? 'Masquer' : 'Voir'} les résultats</button>
               <button className="lien-danger" onClick={annulerTirage}>Annuler le tirage</button>
             </div>
+            <details className="cache">
+              <summary>Options avancées</summary>
+              <p className="aide">À n'utiliser qu'en cas de problème : cela te dévoile qui offre à qui (y compris ton propre tirage).</p>
+              {!voirResultats ? (
+                <button
+                  className="btn contour petit"
+                  onClick={() => {
+                    const r = window.prompt('Tu vas voir tous les résultats du tirage. Tape VOIR pour confirmer :');
+                    if (r && r.trim().toUpperCase() === 'VOIR') setVoirResultats(true);
+                  }}
+                >
+                  Afficher tous les résultats
+                </button>
+              ) : (
+                <button className="btn contour petit" onClick={() => setVoirResultats(false)}>Masquer les résultats</button>
+              )}
+            </details>
             {voirResultats && (
               <ul className="liste">
                 {santa.map((p) => {
