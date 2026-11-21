@@ -18,9 +18,13 @@ export default function Admin(props) {
         <h1 className="titre-page">Admin</h1>
         <form
           className="formulaire"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            if (code === ADMIN_CODE) {
+            // Code défini depuis la page Admin (prioritaire), sinon celui de config.js
+            const bon = props.settings.adminHash
+              ? (await hashPin(code, '__admin__')) === props.settings.adminHash
+              : code === ADMIN_CODE;
+            if (bon) {
               sessionStorage.setItem('noel_admin', '1');
               setOk(true);
             } else setErreur('Code incorrect.');
@@ -257,6 +261,46 @@ function Tableau({ settings, participants }) {
           ))}
         </ul>
       </div>
+
+      <ChangerCodeAdmin settings={settings} onFait={() => flash('Code admin modifié')} />
     </section>
+  );
+}
+
+function ChangerCodeAdmin({ settings, onFait }) {
+  const [actuel, setActuel] = useState('');
+  const [nouveau, setNouveau] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [erreur, setErreur] = useState('');
+
+  const valider = async (e) => {
+    e.preventDefault();
+    setErreur('');
+    const bon = settings.adminHash
+      ? (await hashPin(actuel, '__admin__')) === settings.adminHash
+      : actuel === ADMIN_CODE;
+    if (!bon) return setErreur('Le code actuel est incorrect.');
+    if (nouveau.length < 4) return setErreur('Le nouveau code doit faire au moins 4 caractères.');
+    if (nouveau !== confirm) return setErreur('Les deux nouveaux codes ne sont pas identiques.');
+    await majReglages({ adminHash: await hashPin(nouveau, '__admin__') });
+    setActuel('');
+    setNouveau('');
+    setConfirm('');
+    onFait();
+  };
+
+  return (
+    <div className="panneau">
+      <h2 className="titre-section">Changer le code admin</h2>
+      <form onSubmit={valider} className="formulaire">
+        <label>Code actuel<input type="password" value={actuel} onChange={(e) => setActuel(e.target.value)} autoComplete="current-password" /></label>
+        <div className="ligne2">
+          <label>Nouveau code<input type="password" value={nouveau} onChange={(e) => setNouveau(e.target.value)} autoComplete="new-password" /></label>
+          <label>Confirmer<input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" /></label>
+        </div>
+        {erreur && <div className="alerte erreur">{erreur}</div>}
+        <button className="btn vert">Changer le code</button>
+      </form>
+    </div>
   );
 }
