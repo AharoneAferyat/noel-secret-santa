@@ -4,6 +4,7 @@ import { db } from '../firebase.js';
 import { PARTICIPATIONS } from '../config.js';
 import { fmtDate, hashPin, norm, participationDe } from '../utils.js';
 import { ChoixDispos, ChoixParticipation, Pastilles } from '../components.jsx';
+import { pluieDeSapins } from '../effets.js';
 
 const lireSession = () => {
   try {
@@ -254,49 +255,136 @@ export function Revelation({ cible, budget }) {
   );
 }
 
-// Carte à gratter : on efface la couche dorée avec le doigt ou la souris.
+// Carte à gratter façon ticket : couche argentée métallisée, bords irréguliers,
+// paillettes qui tombent et légère vibration sur téléphone.
 export function Grattage({ children, onFini }) {
   const boite = useRef(null);
   const toile = useRef(null);
+  const toileMiettes = useRef(null);
   const [fini, setFini] = useState(false);
-  const etat = useRef({ actif: false, dernier: null, compteur: 0, termine: false });
+  const etat = useRef({ actif: false, dernier: null, compteur: 0, termine: false, miettes: [], anim: 0, vibre: 0 });
 
   useEffect(() => {
-    const c = toile.current;
     const b = boite.current;
     const dpr = window.devicePixelRatio || 1;
     const w = b.offsetWidth;
     const h = b.offsetHeight;
-    c.width = w * dpr;
-    c.height = h * dpr;
-    c.style.width = w + 'px';
-    c.style.height = h + 'px';
-    const ctx = c.getContext('2d');
-    ctx.scale(dpr, dpr);
+    [toile.current, toileMiettes.current].forEach((c) => {
+      c.width = w * dpr;
+      c.height = h * dpr;
+      c.style.width = w + 'px';
+      c.style.height = h + 'px';
+      c.getContext('2d').scale(dpr, dpr);
+    });
+    const ctx = toile.current.getContext('2d');
 
-    // Couche dorée
+    // 1. Fond argenté métallisé
     const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, '#c9962a');
-    g.addColorStop(0.45, '#f6d77a');
-    g.addColorStop(0.55, '#f2c14e');
-    g.addColorStop(1, '#b8841f');
+    g.addColorStop(0, '#9ea3a8');
+    g.addColorStop(0.25, '#d9dde0');
+    g.addColorStop(0.45, '#aeb3b8');
+    g.addColorStop(0.6, '#eef0f2');
+    g.addColorStop(0.8, '#a4a9ae');
+    g.addColorStop(1, '#c9cdd1');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
-    // Petites étoiles
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    for (let i = 0; i < 40; i++) {
-      ctx.beginPath();
-      ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 2 + 0.6, 0, Math.PI * 2);
-      ctx.fill();
+
+    // 2. Grain (bruit) pour l'effet feuille métallique
+    const img = ctx.getImageData(0, 0, w * dpr, h * dpr);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 34;
+      d[i] += n;
+      d[i + 1] += n;
+      d[i + 2] += n;
     }
-    ctx.fillStyle = '#5a3d0a';
+    ctx.putImageData(img, 0, 0);
+
+    // 3. Motif répété en diagonale
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(-Math.PI / 9);
+    ctx.font = '400 13px Anton, sans-serif';
+    ctx.fillStyle = 'rgba(80, 86, 92, 0.16)';
+    ctx.textAlign = 'center';
+    for (let y = -h; y < h; y += 26) {
+      for (let x = -w; x < w; x += 120) {
+        ctx.fillText('SECRET SANTA ★', x + ((y / 26) % 2) * 60, y);
+      }
+    }
+    ctx.restore();
+
+    // 4. Reflet brillant
+    const reflet = ctx.createLinearGradient(0, 0, w, 0);
+    reflet.addColorStop(0.3, 'rgba(255,255,255,0)');
+    reflet.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+    reflet.addColorStop(0.7, 'rgba(255,255,255,0)');
+    ctx.fillStyle = reflet;
+    ctx.fillRect(0, 0, w, h);
+
+    // 5. Cadre en pointillés + texte
+    ctx.strokeStyle = 'rgba(70, 75, 80, 0.45)';
+    ctx.setLineDash([6, 5]);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.setLineDash([]);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = '400 30px Anton, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '400 34px Anton, sans-serif';
+    ctx.fillText('GRATTE ICI', w / 2 + 1, h / 2 - 11);
+    ctx.fillStyle = '#4a4f55';
     ctx.fillText('GRATTE ICI', w / 2, h / 2 - 12);
-    ctx.font = '600 15px "DM Sans", sans-serif';
+    ctx.font = '600 14px "DM Sans", sans-serif';
     ctx.fillText('avec ton doigt ou ta souris', w / 2, h / 2 + 22);
+
+    return () => cancelAnimationFrame(etat.current.anim);
   }, []);
+
+  // Animation des paillettes qui tombent
+  const animer = () => {
+    const s = etat.current;
+    const c = toileMiettes.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    s.miettes = s.miettes.filter((m) => m.vie > 0);
+    s.miettes.forEach((m) => {
+      m.vy += 0.35;
+      m.x += m.vx;
+      m.y += m.vy;
+      m.r += m.vr;
+      m.vie -= 1;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, m.vie / 25);
+      ctx.translate(m.x, m.y);
+      ctx.rotate(m.r);
+      ctx.fillStyle = m.couleur;
+      ctx.fillRect(-m.t / 2, -m.t / 3, m.t, m.t * 0.66);
+      ctx.restore();
+    });
+    s.anim = s.miettes.length ? requestAnimationFrame(animer) : 0;
+  };
+
+  const ajouterMiettes = (x, y) => {
+    const s = etat.current;
+    for (let i = 0; i < 3; i++) {
+      const gris = 150 + Math.floor(Math.random() * 90);
+      s.miettes.push({
+        x: x + (Math.random() - 0.5) * 16,
+        y: y + (Math.random() - 0.5) * 16,
+        vx: (Math.random() - 0.5) * 2.4,
+        vy: -Math.random() * 1.5,
+        r: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.4,
+        t: 2 + Math.random() * 3.5,
+        vie: 35 + Math.random() * 25,
+        couleur: `rgb(${gris},${gris + 3},${gris + 6})`,
+      });
+    }
+    if (s.miettes.length > 400) s.miettes.splice(0, s.miettes.length - 400);
+    if (!s.anim) s.anim = requestAnimationFrame(animer);
+  };
 
   const position = (e) => {
     const r = toile.current.getBoundingClientRect();
@@ -305,15 +393,25 @@ export function Grattage({ children, onFini }) {
 
   const pourcentageGratte = () => {
     const c = toile.current;
-    const ctx = c.getContext('2d');
-    const { data } = ctx.getImageData(0, 0, c.width, c.height);
+    const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
     let vides = 0;
     let total = 0;
-    for (let i = 3; i < data.length; i += 4 * 32) {
+    for (let i = 3; i < data.length; i += 4 * 40) {
       total++;
-      if (data[i] === 0) vides++;
+      if (data[i] < 20) vides++;
     }
     return vides / total;
+  };
+
+  // Pinceau irrégulier : plein de petits cercles au hasard le long du trajet
+  const tamponner = (ctx, x, y) => {
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = Math.random() * 11;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * dist, y + Math.sin(a) * dist, 6 + Math.random() * 9, 0, Math.PI * 2);
+      ctx.fill();
+    }
   };
 
   const gratter = (e) => {
@@ -321,19 +419,32 @@ export function Grattage({ children, onFini }) {
     if (!s.actif || s.termine) return;
     const ctx = toile.current.getContext('2d');
     const p = position(e);
+    const depart = s.dernier || p;
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.lineWidth = 46;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo((s.dernier || p).x, (s.dernier || p).y);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
+    ctx.fillStyle = '#000';
+    const dx = p.x - depart.x;
+    const dy = p.y - depart.y;
+    const pas = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 5));
+    for (let i = 0; i <= pas; i++) {
+      tamponner(ctx, depart.x + (dx * i) / pas, depart.y + (dy * i) / pas);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ajouterMiettes(p.x, p.y);
+
+    // Petite vibration (téléphones Android)
+    const maintenant = Date.now();
+    if (navigator.vibrate && maintenant - s.vibre > 90) {
+      navigator.vibrate(8);
+      s.vibre = maintenant;
+    }
+
     s.dernier = p;
     s.compteur++;
-    if (s.compteur % 8 === 0 && pourcentageGratte() > 0.55) {
+    if (s.compteur % 10 === 0 && pourcentageGratte() > 0.6) {
       s.termine = true;
+      if (navigator.vibrate) navigator.vibrate([30, 40, 60]);
       setFini(true);
+      pluieDeSapins();
       onFini && onFini();
     }
   };
@@ -356,6 +467,7 @@ export function Grattage({ children, onFini }) {
         aria-label="Carte à gratter : gratte pour découvrir ton Secret Santa"
         role="img"
       />
+      <canvas ref={toileMiettes} className="miettes" aria-hidden="true" />
     </div>
   );
 }
