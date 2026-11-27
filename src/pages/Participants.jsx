@@ -10,6 +10,21 @@ export default function Participants({ settings, participants, charge }) {
     <section className="bloc">
       <h1 className="titre-page">Participants</h1>
 
+      <h2 className="titre-section">Inscrits ({participants.length})</h2>
+      {!charge && <p>Chargement…</p>}
+      {charge && participants.length === 0 && <p>Personne pour l'instant. Sois le premier ou la première !</p>}
+      <ul className="liste">
+        {participants.map((p) => (
+          <li key={p.id}>
+            <div>
+              <strong>{p.prenom} {p.nom}</strong>
+              <span className="aide"> · {p.titre}</span>
+            </div>
+            <Pastilles p={p} />
+          </li>
+        ))}
+      </ul>
+
       {!settings.dateRetenue && dates.length > 0 && (
         <div className="sondage">
           <h2 className="titre-section">Sondage : date du repas</h2>
@@ -32,20 +47,6 @@ export default function Participants({ settings, participants, charge }) {
         <div className="alerte ok">Date du repas : <strong>{fmtDate(settings.dateRetenue)}</strong></div>
       )}
 
-      <h2 className="titre-section">Inscrits ({participants.length})</h2>
-      {!charge && <p>Chargement…</p>}
-      {charge && participants.length === 0 && <p>Personne pour l'instant. Sois le premier ou la première !</p>}
-      <ul className="liste">
-        {participants.map((p) => (
-          <li key={p.id}>
-            <div>
-              <strong>{p.prenom} {p.nom}</strong>
-              <span className="aide"> · {p.titre}</span>
-            </div>
-            <Pastilles p={p} />
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

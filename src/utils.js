@@ -61,3 +61,10 @@ export function tirage(ids) {
 }
 
 export const nomComplet = (p) => `${p.prenom} ${p.nom}`;
+
+// Date du jour au format AAAA-MM-JJ (heure locale)
+export const aujourdhui = () => new Date().toLocaleDateString('sv-SE');
+
+// Inscriptions fermées : fermées à la main, ou date limite dépassée
+export const inscriptionsFermees = (settings) =>
+  !settings.inscriptionsOuvertes || (settings.dateLimite && aujourdhui() > settings.dateLimite);

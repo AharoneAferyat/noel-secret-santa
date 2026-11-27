@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { PARTICIPATIONS } from '../config.js';
@@ -199,16 +199,20 @@ function Espace({ moi, settings, participants, onDeconnexion }) {
         <div className="carte fond-rouge santa">
           <h2>Mon Secret Santa</h2>
           {!settings.tirageFait && <p>Le tirage au sort n'a pas encore eu lieu. Reviens ici {settings.dateTirage ? `à partir du ${fmtDate(settings.dateTirage)}` : 'après la clôture des inscriptions'} !</p>}
-          {settings.tirageFait && cible && !devoile && (
-            <button className="btn blanc" onClick={() => setDevoile(true)}>Découvrir à qui j'offre mon cadeau</button>
+          {settings.tirageFait && cible && !moi.gratte && (
+            <>
+              <p>Gratte la carte pour découvrir à qui tu offres ton cadeau !</p>
+              <Grattage onFini={() => setTimeout(() => { setDevoile(true); updateDoc(doc(db, 'participants', moi.id), { gratte: true }).catch(() => {}); }, 800)}>
+                <Revelation cible={cible} budget={settings.budget} />
+              </Grattage>
+            </>
           )}
-          {settings.tirageFait && cible && devoile && (
-            <div className="revelation">
-              <p>Tu offres un cadeau à…</p>
-              <p className="nom-cible">{cible.prenom} {cible.nom}</p>
-              <p className="titre-cible">{cible.titre}</p>
-              {settings.budget && <p>Budget : {settings.budget} € maximum</p>}
-              <p className="aide-claire">Chut… c'est un secret !</p>
+          {settings.tirageFait && cible && moi.gratte && !devoile && (
+            <button className="btn blanc" onClick={() => setDevoile(true)}>Revoir à qui j'offre mon cadeau</button>
+          )}
+          {settings.tirageFait && cible && moi.gratte && devoile && (
+            <div className="carte-grattage ouverte">
+              <Revelation cible={cible} budget={settings.budget} />
             </div>
           )}
           {settings.tirageFait && !cible && <p>Tu n'as pas été inclus·e dans le tirage. Contacte l'organisateur.</p>}
@@ -235,5 +239,123 @@ function Espace({ moi, settings, participants, onDeconnexion }) {
         <button type="button" className="lien-danger" onClick={supprimer}>Me désinscrire</button>
       </form>
     </section>
+  );
+}
+
+export function Revelation({ cible, budget }) {
+  return (
+    <div className="revelation">
+      <p>Tu offres un cadeau à…</p>
+      <p className="nom-cible">{cible.prenom} {cible.nom}</p>
+      <p className="titre-cible">{cible.titre}</p>
+      {budget && <p>Budget : {budget} € maximum</p>}
+      <p className="aide-claire">Chut… c'est un secret !</p>
+    </div>
+  );
+}
+
+// Carte à gratter : on efface la couche dorée avec le doigt ou la souris.
+export function Grattage({ children, onFini }) {
+  const boite = useRef(null);
+  const toile = useRef(null);
+  const [fini, setFini] = useState(false);
+  const etat = useRef({ actif: false, dernier: null, compteur: 0, termine: false });
+
+  useEffect(() => {
+    const c = toile.current;
+    const b = boite.current;
+    const dpr = window.devicePixelRatio || 1;
+    const w = b.offsetWidth;
+    const h = b.offsetHeight;
+    c.width = w * dpr;
+    c.height = h * dpr;
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // Couche dorée
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#c9962a');
+    g.addColorStop(0.45, '#f6d77a');
+    g.addColorStop(0.55, '#f2c14e');
+    g.addColorStop(1, '#b8841f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    // Petites étoiles
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for (let i = 0; i < 40; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 2 + 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#5a3d0a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '400 30px Anton, sans-serif';
+    ctx.fillText('GRATTE ICI', w / 2, h / 2 - 12);
+    ctx.font = '600 15px "DM Sans", sans-serif';
+    ctx.fillText('avec ton doigt ou ta souris', w / 2, h / 2 + 22);
+  }, []);
+
+  const position = (e) => {
+    const r = toile.current.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const pourcentageGratte = () => {
+    const c = toile.current;
+    const ctx = c.getContext('2d');
+    const { data } = ctx.getImageData(0, 0, c.width, c.height);
+    let vides = 0;
+    let total = 0;
+    for (let i = 3; i < data.length; i += 4 * 32) {
+      total++;
+      if (data[i] === 0) vides++;
+    }
+    return vides / total;
+  };
+
+  const gratter = (e) => {
+    const s = etat.current;
+    if (!s.actif || s.termine) return;
+    const ctx = toile.current.getContext('2d');
+    const p = position(e);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = 46;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo((s.dernier || p).x, (s.dernier || p).y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    s.dernier = p;
+    s.compteur++;
+    if (s.compteur % 8 === 0 && pourcentageGratte() > 0.55) {
+      s.termine = true;
+      setFini(true);
+      onFini && onFini();
+    }
+  };
+
+  return (
+    <div ref={boite} className="carte-grattage">
+      {children}
+      <canvas
+        ref={toile}
+        className={'couche-grattage' + (fini ? ' disparue' : '')}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          etat.current.actif = true;
+          etat.current.dernier = null;
+          gratter(e);
+        }}
+        onPointerMove={gratter}
+        onPointerUp={() => { etat.current.actif = false; }}
+        onPointerCancel={() => { etat.current.actif = false; }}
+        aria-label="Carte à gratter : gratte pour découvrir ton Secret Santa"
+        role="img"
+      />
+    </div>
   );
 }

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { DEFAULT_SETTINGS } from './config.js';
+import { effectuerTirage, momentTirageAuto } from './tirage.js';
 import Accueil from './pages/Accueil.jsx';
 import Inscription from './pages/Inscription.jsx';
 import MonEspace from './pages/MonEspace.jsx';
@@ -51,6 +52,29 @@ export default function App() {
       u2();
     };
   }, []);
+
+  // Tirage automatique : fait par le premier visiteur après la date prévue à 00h01
+  const tentative = useRef(false);
+  useEffect(() => {
+    if (!charge || tentative.current) return;
+    if (settings.tirageFait || settings.tirageAutoActif === false) return;
+    const moment = momentTirageAuto(settings.dateTirage);
+    if (!moment) return;
+    const lancer = () => {
+      if (tentative.current) return;
+      tentative.current = true;
+      effectuerTirage({ auto: true }).catch(() => {});
+    };
+    const reste = moment.getTime() - Date.now();
+    if (reste <= 0) {
+      lancer();
+      return;
+    }
+    if (reste < 24 * 3600 * 1000) {
+      const t = setTimeout(lancer, reste + 2000);
+      return () => clearTimeout(t);
+    }
+  }, [charge, settings.tirageFait, settings.tirageAutoActif, settings.dateTirage]);
 
   const go = (p) => {
     window.location.hash = p;

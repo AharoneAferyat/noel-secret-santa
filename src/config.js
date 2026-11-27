@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = {
   dates: [],
   dateRetenue: '',
   tirageFait: false,
+  tirageAutoActif: true,
   tirageLe: '',
 };
 

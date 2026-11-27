@@ -3,6 +3,8 @@ import { deleteDoc, doc, setDoc, updateDoc, writeBatch } from 'firebase/firestor
 import { db } from '../firebase.js';
 import { ADMIN_CODE } from '../config.js';
 import { fmtDate, fmtDateCourt, hashPin, tirage } from '../utils.js';
+import { effectuerTirage } from '../tirage.js';
+import { Grattage, Revelation } from './MonEspace.jsx';
 import { Pastilles } from '../components.jsx';
 
 const majReglages = (champs) => setDoc(doc(db, 'settings', 'main'), champs, { merge: true });
@@ -77,18 +79,18 @@ function Tableau({ settings, participants }) {
   const lancerTirage = async () => {
     if (santa.length < 3) return window.alert('Il faut au moins 3 participants au Secret Santa.');
     if (!window.confirm(`Lancer le tirage au sort pour ${santa.length} personnes ? Chacun pourra voir son résultat dans « Mon espace ».`)) return;
-    const res = tirage(santa.map((p) => p.id));
-    const batch = writeBatch(db);
-    santa.forEach((p) => batch.update(doc(db, 'participants', p.id), { cible: res[p.id] }));
-    batch.set(doc(db, 'settings', 'main'), { tirageFait: true, tirageLe: new Date().toISOString(), inscriptionsOuvertes: settings.inscriptionsOuvertes }, { merge: true });
-    await batch.commit();
-    flash('Tirage effectué !');
+    try {
+      await effectuerTirage();
+      flash('Tirage effectué !');
+    } catch (err) {
+      window.alert(err.message === 'DEJA_FAIT' ? 'Le tirage a déjà été fait.' : 'Erreur : ' + err.message);
+    }
   };
 
   const annulerTirage = async () => {
     if (!window.confirm('Annuler le tirage ? Tous les résultats seront effacés (il faudra relancer).')) return;
     const batch = writeBatch(db);
-    participants.forEach((p) => batch.update(doc(db, 'participants', p.id), { cible: null }));
+    participants.forEach((p) => batch.update(doc(db, 'participants', p.id), { cible: null, gratte: false }));
     batch.set(doc(db, 'settings', 'main'), { tirageFait: false, tirageLe: '' }, { merge: true });
     await batch.commit();
     setVoirResultats(false);
@@ -191,8 +193,13 @@ function Tableau({ settings, participants }) {
         <h2 className="titre-section">Tirage au sort</h2>
         {!settings.tirageFait ? (
           <>
-            <p>{santa.length} participant{santa.length > 1 ? 's' : ''} au Secret Santa. Pense à fermer les inscriptions avant de lancer le tirage.</p>
-            <button className="btn rouge" onClick={lancerTirage}>Lancer le tirage</button>
+            <p>{santa.length} participant{santa.length > 1 ? 's' : ''} au Secret Santa.</p>
+            <label className="interrupteur">
+              <input type="checkbox" checked={settings.tirageAutoActif !== false} onChange={(e) => majReglages({ tirageAutoActif: e.target.checked })} />
+              <span>Tirage automatique {settings.dateTirage ? `le ${fmtDate(settings.dateTirage)} à 00h01` : '(choisis la date dans les réglages)'}</span>
+            </label>
+            <p className="aide">Le tirage se fait tout seul dès que quelqu'un ouvre le site après cette heure-là (toi ou n'importe quel participant). Les inscriptions ferment d'elles-mêmes après la date limite.</p>
+            <button className="btn rouge" onClick={lancerTirage}>Lancer le tirage maintenant</button>
           </>
         ) : (
           <>
@@ -262,6 +269,8 @@ function Tableau({ settings, participants }) {
         </ul>
       </div>
 
+      <ModeTest budget={settings.budget} />
+
       <ChangerCodeAdmin settings={settings} onFait={() => flash('Code admin modifié')} />
     </section>
   );
@@ -301,6 +310,58 @@ function ChangerCodeAdmin({ settings, onFait }) {
         {erreur && <div className="alerte erreur">{erreur}</div>}
         <button className="btn vert">Changer le code</button>
       </form>
+    </div>
+  );
+}
+
+const NOMS_TEST = [
+  { prenom: 'Camille', nom: 'TEST', titre: 'Infirmière' },
+  { prenom: 'Lucas', nom: 'TEST', titre: 'Interne' },
+  { prenom: 'Sarah', nom: 'TEST', titre: 'Aide-soignante' },
+  { prenom: 'Karim', nom: 'TEST', titre: 'Médecin' },
+  { prenom: 'Julie', nom: 'TEST', titre: 'Secrétaire médicale' },
+  { prenom: 'Thomas', nom: 'TEST', titre: 'Cadre de santé' },
+];
+
+// Mode test : rien n'est enregistré, aucun vrai participant n'est utilisé.
+function ModeTest({ budget }) {
+  const [simulation, setSimulation] = useState(null);
+  const [carte, setCarte] = useState(0);
+  const [cibleTest, setCibleTest] = useState(NOMS_TEST[0]);
+
+  const simuler = () => {
+    const ids = NOMS_TEST.map((_, i) => i);
+    const res = tirage(ids);
+    setSimulation(ids.map((i) => ({ de: NOMS_TEST[i], a: NOMS_TEST[res[i]] })));
+  };
+
+  return (
+    <div className="panneau">
+      <h2 className="titre-section">Mode test</h2>
+      <p className="aide">Pour essayer sans risque : avec de faux participants, rien n'est enregistré et le vrai tirage n'est pas touché.</p>
+
+      <h3 className="sous-titre-test">1. Simuler un tirage</h3>
+      <button className="btn contour petit" onClick={simuler}>{simulation ? 'Refaire une simulation' : 'Simuler un tirage'}</button>
+      {simulation && (
+        <ul className="liste" style={{ marginTop: 10 }}>
+          {simulation.map((r) => (
+            <li key={r.de.prenom}>
+              <span>{r.de.prenom} → <strong>{r.a.prenom}</strong> <span className="aide">({r.a.titre})</span></span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {simulation && <p className="aide">Chacun a exactement une personne, et personne ne tombe sur soi-même.</p>}
+
+      <h3 className="sous-titre-test">2. Essayer la carte à gratter</h3>
+      <button className="btn contour petit" onClick={() => { setCibleTest(NOMS_TEST[Math.floor(Math.random() * NOMS_TEST.length)]); setCarte((n) => n + 1); }}>{carte ? 'Nouvelle carte' : 'Afficher une carte de test'}</button>
+      {carte > 0 && (
+        <div className="carte fond-rouge santa" style={{ marginTop: 12 }}>
+          <Grattage key={carte} onFini={() => {}}>
+            <Revelation cible={cibleTest} budget={budget} />
+          </Grattage>
+        </div>
+      )}
     </div>
   );
 }

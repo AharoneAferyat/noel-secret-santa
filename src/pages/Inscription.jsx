@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { doc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { PARTICIPATIONS } from '../config.js';
-import { hashPin, keyOf, propre } from '../utils.js';
+import { hashPin, inscriptionsFermees, keyOf, propre } from '../utils.js';
 import { ChoixDispos, ChoixParticipation } from '../components.jsx';
 
 export default function Inscription({ settings, go }) {
@@ -16,7 +16,7 @@ export default function Inscription({ settings, go }) {
   const [erreur, setErreur] = useState('');
   const [envoi, setEnvoi] = useState(false);
 
-  if (!settings.inscriptionsOuvertes) {
+  if (inscriptionsFermees(settings)) {
     return (
       <section className="bloc">
         <h1 className="titre-page">Inscription</h1>
