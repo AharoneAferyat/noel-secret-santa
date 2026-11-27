@@ -79,7 +79,7 @@ export default function Inscription({ settings, go }) {
         </div>
         <label>
           Poste
-          <input value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="ex. Infirmière, Secrétaire médical, Interne…" />
+          <input value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="ex. Médecin, Infirmier·e, Secrétaire médical·e…" />
           <span className="aide">Pour savoir qui est qui le jour du tirage.</span>
         </label>
 

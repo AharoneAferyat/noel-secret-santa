@@ -315,12 +315,12 @@ function ChangerCodeAdmin({ settings, onFait }) {
 }
 
 const NOMS_TEST = [
-  { prenom: 'Camille', nom: 'TEST', titre: 'Infirmière' },
-  { prenom: 'Lucas', nom: 'TEST', titre: 'Interne' },
-  { prenom: 'Sarah', nom: 'TEST', titre: 'Aide-soignante' },
+  { prenom: 'Sarah', nom: 'TEST', titre: 'Médecin' },
   { prenom: 'Karim', nom: 'TEST', titre: 'Médecin' },
-  { prenom: 'Julie', nom: 'TEST', titre: 'Secrétaire médicale' },
-  { prenom: 'Thomas', nom: 'TEST', titre: 'Cadre de santé' },
+  { prenom: 'Julie', nom: 'TEST', titre: 'Infirmière' },
+  { prenom: 'Lucas', nom: 'TEST', titre: 'Infirmier' },
+  { prenom: 'Inès', nom: 'TEST', titre: 'Secrétaire médicale' },
+  { prenom: 'Thomas', nom: 'TEST', titre: 'Secrétaire médical' },
 ];
 
 // Mode test : rien n'est enregistré, aucun vrai participant n'est utilisé.
