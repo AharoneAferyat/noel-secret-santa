@@ -156,7 +156,7 @@ legend { font-weight: 700; padding: 0 6px; color: var(--or); }
 .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
 /* Sondage */
-.sondage { background: var(--surface); border: 1px solid var(--bord); border-radius: 16px; padding: 4px 16px 16px; }
+.sondage { background: var(--surface); border: 1px solid var(--bord); border-radius: 16px; padding: 4px 16px 16px; margin-top: 32px; }
 .barre-ligne { margin-top: 12px; }
 .barre-label { display: flex; justify-content: space-between; text-transform: capitalize; }
 .barre { height: 12px; background: var(--champ); border-radius: 999px; overflow: hidden; margin-top: 4px; }
